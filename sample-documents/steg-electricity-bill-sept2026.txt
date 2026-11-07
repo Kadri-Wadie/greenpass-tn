@@ -1,0 +1,4 @@
+Electricity invoice
+Supplier: STEG.
+Date: 2026-09-30.
+Consumption: 1850 kWh.

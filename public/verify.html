@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verify — GreenPass TN</title>
+<style>
+  :root {
+    --bg: #f6f8f5; --surface: #ffffff; --border: #dde5de;
+    --text: #14201b; --text-muted: #5b6b62;
+    --green: #1f6f54; --green-dark: #16513e; --red: #b84c3e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 32px; max-width: 420px; width: 100%; margin: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.muted { color: var(--text-muted); margin: 0 0 20px; font-size: 14px; }
+  .status { padding: 14px 16px; border-radius: 8px; font-weight: 600; font-size: 15px; }
+  .status.ok { background: #e7f3ee; color: var(--green-dark); }
+  .status.fail { background: #fbeceA; color: var(--red); }
+  .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 14px; border-bottom: 1px solid var(--border); }
+  .row:last-child { border-bottom: none; }
+  .row span:first-child { color: var(--text-muted); }
+  .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; word-break: break-all; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>GreenPass verification</h1>
+    <p class="muted">Checking the record fingerprint and its anchor reference…</p>
+    <div id="content">Loading…</div>
+  </div>
+
+<script>
+  const recordId = window.location.pathname.split('/').pop();
+
+  async function run() {
+    const content = document.getElementById('content');
+    try {
+      const res = await fetch(`/api/records/${recordId}/verify`);
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Record not found');
+
+      const r = result.record;
+      content.innerHTML = `
+        <div class="status ${result.matches ? 'ok' : 'fail'}">
+          ${result.matches ? '✓ Integrity matches' : '❌ Hash mismatch — this record was changed after anchoring'}
+        </div>
+        <div style="margin-top:18px;">
+          <div class="row"><span>Company</span><span>${r.companyId}</span></div>
+          <div class="row"><span>Period</span><span>${r.period}</span></div>
+          <div class="row"><span>Footprint</span><span>${r.footprint.total_tco2e} tCO2e</span></div>
+          <div class="row"><span>Anchored</span><span>${new Date(r.anchoredAt).toLocaleString()}</span></div>
+          <div class="row"><span>${r.anchor.topicId === 'LOCAL-DEMO' ? 'Demo fingerprint (not on-chain)' : 'Hedera-anchored hash'}</span><span class="hash">${result.onChainHash}</span></div>
+        </div>
+      `;
+    } catch (err) {
+      content.innerHTML = `<div class="status fail">${err.message}</div>`;
+    }
+  }
+
+  run();
+</script>
+</body>
+</html>

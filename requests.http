@@ -1,0 +1,39 @@
+@baseUrl = http://localhost:3000
+@recordId = PASTE_RECORD_ID_HERE
+
+### Upload two sample bills, run the pipeline, and anchor a record
+# Click "Send Request" above this line (needs the REST Client extension)
+POST {{baseUrl}}/api/records
+Content-Type: multipart/form-data; boundary=GreenPassBoundary
+
+--GreenPassBoundary
+Content-Disposition: form-data; name="companyId"
+
+Tunisian SME_x
+--GreenPassBoundary
+Content-Disposition: form-data; name="period"
+
+2026-09
+--GreenPassBoundary
+Content-Disposition: form-data; name="documents"; filename="electricity-bill.txt"
+Content-Type: text/plain
+
+Supplier: STEG. Date: 2026-09-30. Consumption: 1850 kWh.
+--GreenPassBoundary
+Content-Disposition: form-data; name="documents"; filename="diesel-invoice.txt"
+Content-Type: text/plain
+
+Supplier: Agil Tunisie. Date: 2026-09-28. Quantity: 420 L diesel.
+--GreenPassBoundary--
+
+### List every anchored record
+GET {{baseUrl}}/api/records
+
+### Verify a record — copy its recordId into @recordId above first
+GET {{baseUrl}}/api/records/{{recordId}}/verify
+
+### DEMO ONLY — edit the stored value without touching the anchored hash
+POST {{baseUrl}}/api/records/{{recordId}}/tamper
+
+### Re-run verify after the tamper call above to see it fail
+GET {{baseUrl}}/api/records/{{recordId}}/verify

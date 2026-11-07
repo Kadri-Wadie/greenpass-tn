@@ -1,0 +1,6 @@
+{
+  "electricity_kwh_kgco2e": 0.45,
+  "diesel_liter_kgco2e": 2.68,
+  "note": "Demo values for the hackathon POC. Replace electricity_kwh_kgco2e with an authoritative Tunisian grid factor and confirm diesel_liter_kgco2e against a recognized source (e.g. GHG Protocol) before any production or client-facing use.",
+  "version": "v1.0"
+}

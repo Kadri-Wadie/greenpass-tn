@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GreenPass TN</title>
+<style>
+  :root {
+    --bg: #f6f8f5;
+    --surface: #ffffff;
+    --border: #dde5de;
+    --text: #14201b;
+    --text-muted: #5b6b62;
+    --green: #1f6f54;
+    --green-dark: #16513e;
+    --red: #b84c3e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 48px 24px 96px; }
+  header h1 {
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    margin: 0 0 4px;
+  }
+  header p { color: var(--text-muted); margin: 0 0 40px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .card h2 { font-size: 16px; margin: 0 0 16px; }
+
+  label { display: block; font-size: 13px; color: var(--text-muted); margin: 14px 0 4px; }
+  input[type="text"], input[type="file"] {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--bg);
+  }
+
+  button {
+    margin-top: 18px;
+    background: var(--green);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--green-dark); }
+  button.secondary {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red);
+  }
+  button.secondary:hover { background: #fbeceA; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+  .row span:first-child { color: var(--text-muted); }
+  .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+
+  .status { padding: 12px 14px; border-radius: 8px; font-weight: 600; font-size: 14px; margin-top: 16px; }
+  .status.ok { background: #e7f3ee; color: var(--green-dark); }
+  .status.fail { background: #fbeceA; color: var(--red); }
+
+  #qr { margin-top: 16px; }
+  #qr img { border-radius: 8px; border: 1px solid var(--border); }
+
+  #records .item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  #records .item:last-child { border-bottom: none; }
+  .muted { color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>GreenPass TN</h1>
+    <p>AI extracts. Hedera anchors. GreenPass makes it shareable.</p>
+  </header>
+
+  <div class="card">
+    <h2>Upload evidence</h2>
+    <form id="uploadForm">
+      <label for="companyId">Company</label>
+      <input type="text" id="companyId" value="Tunisian SME_x" />
+
+      <label for="period">Reporting period</label>
+      <input type="text" id="period" value="2026-09" />
+
+      <label for="documents">Bills / invoices (.txt for the demo)</label>
+      <input type="file" id="documents" multiple required />
+
+      <button type="submit" id="submitBtn">Extract, calculate &amp; anchor</button>
+    </form>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none;">
+    <h2>GreenPass record</h2>
+    <div id="resultRows"></div>
+    <div id="qr"></div>
+
+    <div style="margin-top:20px; display:flex; gap:10px;">
+      <button id="verifyBtn">Verify integrity</button>
+      <button id="tamperBtn" class="secondary">Tamper with record (demo)</button>
+    </div>
+    <div id="statusBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Anchored records</h2>
+    <div id="records" class="muted">Loading…</div>
+  </div>
+</div>
+
+<script>
+let currentRecordId = null;
+
+async function loadRecords() {
+  const res = await fetch('/api/records');
+  const records = await res.json();
+  const el = document.getElementById('records');
+
+  if (records.length === 0) {
+    el.innerHTML = '<p class="muted">No records anchored yet.</p>';
+    return;
+  }
+
+  el.innerHTML = records.map(r => `
+    <div class="item">
+      <span>${r.companyId} · ${r.period}</span>
+      <span class="muted">${r.footprint.total_tco2e} tCO2e</span>
+    </div>
+  `).join('');
+}
+
+function renderResult(record, qrDataUrl) {
+  currentRecordId = record.recordId;
+  document.getElementById('resultCard').style.display = 'block';
+  document.getElementById('statusBox').innerHTML = '';
+
+  document.getElementById('resultRows').innerHTML = `
+    <div class="row"><span>Company</span><span>${record.companyId}</span></div>
+    <div class="row"><span>Period</span><span>${record.period}</span></div>
+    <div class="row"><span>Electricity</span><span>${record.electricityKwh} kWh</span></div>
+    <div class="row"><span>Diesel</span><span>${record.dieselLiters} L</span></div>
+    <div class="row"><span>Footprint</span><span>${record.footprint.total_tco2e} tCO2e</span></div>
+    <div class="row"><span>Evidence</span><span>${record.evidenceCount} source document(s)</span></div>
+    <div class="row"><span>${record.anchor.topicId === 'LOCAL-DEMO' ? 'Demo fingerprint (not on-chain)' : 'Hedera-anchored hash'}</span><span class="hash">${record.hash}</span></div>
+  `;
+
+  document.getElementById('qr').innerHTML = `<img src="${qrDataUrl}" width="140" height="140" alt="Scan to verify" />`;
+}
+
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Processing record…';
+
+  const form = new FormData();
+  form.append('companyId', document.getElementById('companyId').value);
+  form.append('period', document.getElementById('period').value);
+  for (const file of document.getElementById('documents').files) {
+    form.append('documents', file);
+  }
+
+  try {
+    const res = await fetch('/api/records', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+    renderResult(data.record, data.qrDataUrl);
+    loadRecords();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Extract, calculate & anchor';
+  }
+});
+
+document.getElementById('verifyBtn').addEventListener('click', async () => {
+  const res = await fetch(`/api/records/${currentRecordId}/verify`);
+  const result = await res.json();
+  const box = document.getElementById('statusBox');
+
+  box.innerHTML = result.matches
+    ? '<div class="status ok">✓ Integrity matches — record is unchanged since it was anchored.</div>'
+    : `<div class="status fail">❌ Hash mismatch — recomputed ${result.recomputedHash.slice(0,12)}… vs on-chain ${result.onChainHash.slice(0,12)}…</div>`;
+});
+
+document.getElementById('tamperBtn').addEventListener('click', async () => {
+  await fetch(`/api/records/${currentRecordId}/tamper`, { method: 'POST' });
+  document.getElementById('statusBox').innerHTML =
+    '<div class="status fail">Record edited directly in the database (electricity → 2850 kWh). Click "Verify integrity" to see the check catch it.</div>';
+});
+
+loadRecords();
+</script>
+</body>
+</html>
